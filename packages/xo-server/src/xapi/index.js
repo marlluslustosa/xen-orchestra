@@ -2375,7 +2375,7 @@ export default class Xapi extends XapiBase {
 
     // Then, generate a FAT fs
     const { mkdir, writeFile, createLabel } = promisifyAll(
-      fatfs.createFileSystem(fatfsBuffer(buffer), { allowLowercaseNames: true })
+      fatfs.createFileSystem(fatfsBuffer(buffer))
     )
 
     await Promise.all([
