@@ -65,5 +65,8 @@
   "workspaces": [
     "@xen-orchestra/*",
     "packages/*"
-  ]
+  ],
+  "dependencies": {
+    "fatfs": "jereksel/fatfs#label"
+  }
 }

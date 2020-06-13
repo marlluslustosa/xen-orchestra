@@ -2274,11 +2274,12 @@ export default class Xapi extends XapiBase {
     $defer.onFailure(() => this._deleteVdi(vdi.$ref))
 
     // Then, generate a FAT fs
-    const { mkdir, writeFile } = promisifyAll(
-      fatfs.createFileSystem(fatfsBuffer(buffer))
+    const { mkdir, writeFile, createLabel } = promisifyAll(
+      fatfs.createFileSystem(fatfsBuffer(buffer), { allowLowercaseNames: true })
     )
 
     await Promise.all([
+      createLabel('cidata'),
       // preferred datasource: NoCloud
       //
       // https://cloudinit.readthedocs.io/en/latest/topics/datasources/nocloud.html
