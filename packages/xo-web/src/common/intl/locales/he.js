@@ -1557,7 +1557,7 @@ export default {
   vdiAction: undefined,
 
   // Original text: 'Attach disk'
-  vdiAttachDeviceButton: undefined,
+  vdiAttachDevice: undefined,
 
   // Original text: 'New disk'
   vbdCreateDeviceButton: undefined,
@@ -1588,9 +1588,6 @@ export default {
 
   // Original text: 'Destination SR:'
   vdiMigrateSelectSr: undefined,
-
-  // Original text: 'Migrate all VDIs'
-  vdiMigrateAll: undefined,
 
   // Original text: 'No SR'
   vdiMigrateNoSr: undefined,
@@ -2611,9 +2608,6 @@ export default {
 
   // Original text: 'Read Only'
   serverReadOnly: undefined,
-
-  // Original text: 'Disconnect server'
-  serverDisconnect: undefined,
 
   // Original text: 'username'
   serverPlaceHolderUser: undefined,

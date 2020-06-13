@@ -840,13 +840,13 @@ export default {
   remoteNamePlaceHolder: 'távoli név *',
 
   // Original text: "Name *"
-  remoteMyNamePlaceHolder: 'Név *',
+  remoteMyNamePlaceHolder: 'Név',
 
   // Original text: "/path/to/backup"
   remoteLocalPlaceHolderPath: '/path/to/backup',
 
   // Original text: "host *"
-  remoteNfsPlaceHolderHost: 'kiszolgáló *',
+  remoteNfsPlaceHolderHost: 'kiszolgáló',
 
   // Original text: "path/to/backup"
   remoteNfsPlaceHolderPath: 'path/to/backup',
@@ -864,7 +864,7 @@ export default {
   remoteSmbPlaceHolderDomain: 'Domain',
 
   // Original text: "<address>\\<share> *"
-  remoteSmbPlaceHolderAddressShare: '<address>\\<share> *',
+  remoteSmbPlaceHolderAddressShare: '<address>\\<share>',
 
   // Original text: "password(fill to edit)"
   remotePlaceHolderPassword: 'jelszó(kattintson a módosításhoz)',
@@ -1773,7 +1773,7 @@ export default {
   vdiAction: 'Művelet',
 
   // Original text: "Attach disk"
-  vdiAttachDeviceButton: 'Diszk Hozzácsatolás',
+  vdiAttachDevice: 'Diszk Hozzácsatolás',
 
   // Original text: "New disk"
   vbdCreateDeviceButton: 'Új diszk',
@@ -1804,9 +1804,6 @@ export default {
 
   // Original text: "Destination SR:"
   vdiMigrateSelectSr: 'Cél Adattároló:',
-
-  // Original text: "Migrate all VDIs"
-  vdiMigrateAll: 'Migrate all VDIs',
 
   // Original text: "No SR"
   vdiMigrateNoSr: 'Nincs Adattároló',
@@ -2909,9 +2906,6 @@ export default {
   // Original text: "Read Only"
   serverReadOnly: 'Csak Olvasható',
 
-  // Original text: "Disconnect server"
-  serverDisconnect: 'Szerver Lecsatlakozás',
-
   // Original text: "username"
   serverPlaceHolderUser: 'felhasználónév',
 
@@ -2938,12 +2932,6 @@ export default {
 
   // Original text: "Connecting…"
   serverConnecting: 'Csatlakozás…',
-
-  // Original text: "Connected"
-  serverConnected: 'Kapcsolódva',
-
-  // Original text: "Disconnected"
-  serverDisconnected: 'Lekapcsolódva',
 
   // Original text: "Authentication error"
   serverAuthFailed: 'Bejelentkezési hiba',

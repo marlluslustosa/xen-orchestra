@@ -3,7 +3,7 @@ import CopyToClipboard from 'react-copy-to-clipboard'
 import PropTypes from 'prop-types'
 import React from 'react'
 import { get } from '@xen-orchestra/defined'
-import { find, startsWith } from 'lodash'
+import { find } from 'lodash'
 
 import decorate from './apply-decorators'
 import Icon from './icon'
@@ -12,7 +12,12 @@ import Tooltip from './tooltip'
 import { addSubscriptions, connectStore, formatSize } from './utils'
 import { createGetObject, createSelector } from './selectors'
 import { FormattedDate } from 'react-intl'
-import { isSrWritable, subscribeRemotes } from './xo'
+import {
+  isSrWritable,
+  subscribeProxies,
+  subscribeRemotes,
+  subscribeUsers,
+} from './xo'
 
 // ===================================================================
 
@@ -133,10 +138,7 @@ export const Vm = decorate([
     return {
       vm: getVm,
       container: createGetObject(
-        createSelector(
-          getVm,
-          vm => get(() => vm.$container)
-        )
+        createSelector(getVm, vm => get(() => vm.$container))
       ),
     }
   }),
@@ -171,10 +173,7 @@ export const VmTemplate = decorate([
   connectStore(() => {
     const getObject = createGetObject()
     const getPool = createGetObject(
-      createSelector(
-        getObject,
-        vm => get(() => vm.$pool)
-      )
+      createSelector(getObject, vm => get(() => vm.$pool))
     )
     return (state, props) => ({
       // FIXME: props.self ugly workaround to get object as a self user
@@ -319,12 +318,17 @@ Vdi.defaultProps = {
 export const Network = decorate([
   connectStore(() => {
     const getObject = createGetObject()
+    const getPool = createGetObject(
+      createSelector(getObject, network => get(() => network.$pool))
+    )
+
     // FIXME: props.self ugly workaround to get object as a self user
     return (state, props) => ({
       network: getObject(state, props, props.self),
+      pool: getPool(state, props),
     })
   }),
-  ({ id, network }) => {
+  ({ id, network, pool }) => {
     if (network === undefined) {
       return unknowItem(id, 'network')
     }
@@ -332,6 +336,9 @@ export const Network = decorate([
     return (
       <span>
         <Icon icon='network' /> {network.name_label}
+        {pool !== undefined && (
+          <span className='text-muted'>{` - ${pool.name_label}`}</span>
+        )}
       </span>
     )
   },
@@ -378,6 +385,43 @@ Remote.defaultProps = {
 
 // ===================================================================
 
+export const Proxy = decorate([
+  addSubscriptions(({ id }) => ({
+    proxy: cb =>
+      subscribeProxies(proxies => cb(proxies.find(proxy => proxy.id === id))),
+  })),
+  ({ id, proxy, link, newTab }) =>
+    proxy !== undefined ? (
+      <LinkWrapper
+        link={link}
+        newTab={newTab}
+        to={{
+          pathname: '/proxies',
+          query: {
+            s: `id:${id}`,
+          },
+        }}
+      >
+        <Icon icon='proxy' /> {proxy.name || proxy.address}
+      </LinkWrapper>
+    ) : (
+      unknowItem(id, 'proxy')
+    ),
+])
+
+Proxy.propTypes = {
+  id: PropTypes.string.isRequired,
+  link: PropTypes.bool,
+  newTab: PropTypes.bool,
+}
+
+Proxy.defaultProps = {
+  link: false,
+  newTab: false,
+}
+
+// ===================================================================
+
 export const Vgpu = connectStore(() => ({
   vgpuType: createGetObject((_, props) => props.vgpu.vgpuType),
 }))(({ vgpu, vgpuType }) => (
@@ -388,6 +432,47 @@ export const Vgpu = connectStore(() => ({
 
 Vgpu.propTypes = {
   vgpu: PropTypes.object.isRequired,
+}
+
+// ===================================================================
+
+export const User = decorate([
+  addSubscriptions(({ id }) => ({
+    user: cb =>
+      subscribeUsers(users => {
+        const user = users.find(user => user.id === id)
+        cb(user === undefined ? null : user)
+      }),
+  })),
+  ({ defaultRender, id, link, newTab, user }) => {
+    if (user === undefined) {
+      return <Icon icon='loading' />
+    }
+    if (user === null) {
+      return defaultRender || unknowItem(id, 'user')
+    }
+    return (
+      <LinkWrapper
+        link={link}
+        newTab={newTab}
+        to={`/settings/users?s=id:${id}`}
+      >
+        <Icon icon='user' /> {user.email}
+      </LinkWrapper>
+    )
+  },
+])
+
+User.propTypes = {
+  defaultRender: PropTypes.node,
+  id: PropTypes.string.isRequired,
+  link: PropTypes.bool,
+  newTab: PropTypes.bool,
+}
+
+User.defaultProps = {
+  link: false,
+  newTab: false,
 }
 
 // ===================================================================
@@ -405,12 +490,9 @@ const xoItemToRender = {
     </span>
   ),
   remote: ({ value: { id } }) => <Remote id={id} />,
+  proxy: ({ id }) => <Proxy id={id} />,
   role: role => <span>{role.name}</span>,
-  user: user => (
-    <span>
-      <Icon icon='user' /> {user.email}
-    </span>
-  ),
+  user: ({ id }) => <User id={id} />,
   resourceSet: resourceSet => (
     <span>
       <strong>
@@ -492,7 +574,7 @@ const xoItemToRender = {
 
   gpuGroup: group => (
     <span>
-      {startsWith(group.name_label, 'Group of ')
+      {group.name_label.startsWith('Group of ')
         ? group.name_label.slice(9)
         : group.name_label}
     </span>
@@ -504,6 +586,9 @@ const xoItemToRender = {
         {backup.mode}
       </span>{' '}
       <span className='tag tag-warning'>{backup.remote.name}</span>{' '}
+      {backup.size !== undefined && (
+        <span className='tag tag-info'>{formatSize(backup.size)}</span>
+      )}{' '}
       <FormattedDate
         value={new Date(backup.timestamp)}
         month='long'

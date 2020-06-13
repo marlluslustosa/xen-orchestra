@@ -897,13 +897,13 @@ export default {
   remoteNamePlaceHolder: 'nom distant*',
 
   // Original text: "Name *"
-  remoteMyNamePlaceHolder: 'Nom *',
+  remoteMyNamePlaceHolder: 'Nom',
 
   // Original text: "/path/to/backup"
   remoteLocalPlaceHolderPath: '/chemin/de/la/sauvegarde',
 
   // Original text: "host *"
-  remoteNfsPlaceHolderHost: 'hôte *',
+  remoteNfsPlaceHolderHost: 'hôte',
 
   // Original text: "path/to/backup"
   remoteNfsPlaceHolderPath: 'chemin/de/la/sauvegarde',
@@ -922,7 +922,7 @@ export default {
   remoteSmbPlaceHolderDomain: 'Domaine',
 
   // Original text: "<address>\\<share> *"
-  remoteSmbPlaceHolderAddressShare: '<adresse>\\<partage> *',
+  remoteSmbPlaceHolderAddressShare: '<adresse>\\<partage>',
 
   // Original text: "password(fill to edit)"
   remotePlaceHolderPassword: 'mot de passe (saisir ici pour éditer)',
@@ -1865,7 +1865,7 @@ export default {
   vdiAction: 'Action',
 
   // Original text: "Attach disk"
-  vdiAttachDeviceButton: 'Attacher un disque',
+  vdiAttachDevice: 'Attacher un disque',
 
   // Original text: "New disk"
   vbdCreateDeviceButton: 'Nouveau disque',
@@ -1902,9 +1902,6 @@ export default {
 
   // Original text: "Destination SR:"
   vdiMigrateSelectSr: 'SR de destination :',
-
-  // Original text: "Migrate all VDIs"
-  vdiMigrateAll: 'Migrer tous les VDIs',
 
   // Original text: "No SR"
   vdiMigrateNoSr: 'Pas de SR',
@@ -2185,7 +2182,7 @@ export default {
   vmChooseCoresPerSocket: 'Comportement par défaut',
 
   // Original text: "{nSockets, number} socket{nSockets, plural, one {} other {s}} with {nCores, number} core{nCores, plural, one {} other {s}} per socket"
-  vmCoresPerSocket:
+  vmSocketsWithCoresPerSocket:
     '{nSockets, number} socket{nSockets, plural, one {} other {s}} avec {nCores, number} cœur{nCores, plural, one {} other {s}} par socket',
 
   // Original text: "Incorrect cores per socket value"
@@ -3029,7 +3026,7 @@ export default {
   chooseSrForEachVdisModalSrLabel: 'SR*',
 
   // Original text: "* optional"
-  chooseSrForEachVdisModalOptionalEntry: '* optionnel',
+  optionalEntry: '* optionnel',
 
   // Original text: "Delete VDI"
   deleteVdiModalTitle: 'Supprimer le VDI',
@@ -3135,9 +3132,6 @@ export default {
   serverUnauthorizedCertificatesInfo:
     "Activez ceci si votre certificat est rejeté, mais ce n'est pas recommandé car votre connexion ne sera pas sécurisée.",
 
-  // Original text: "Disconnect server"
-  serverDisconnect: 'Déconnecter le serveur',
-
   // Original text: "username"
   serverPlaceHolderUser: "nom d'utilisateur",
 
@@ -3168,12 +3162,6 @@ export default {
 
   // Original text: "Connecting…"
   serverConnecting: 'Connexion…',
-
-  // Original text: "Connected"
-  serverConnected: 'Connecté',
-
-  // Original text: "Disconnected"
-  serverDisconnected: 'Déconnecté',
 
   // Original text: "Authentication error"
   serverAuthFailed: "Erreur d'authentification",
@@ -3905,10 +3893,10 @@ export default {
   xosanCommunity: 'XOSAN non disponible pour la Community Edition',
 
   // Original text: "Install cloud plugin first"
-  xosanInstallCloudPlugin: 'Installer le plugin cloud avant',
+  xosanInstallCloudPlugin: 'Installer le plugin XOA avant',
 
   // Original text: "Load cloud plugin first"
-  xosanLoadCloudPlugin: 'Charger le plugin cloud avant',
+  xosanLoadCloudPlugin: 'Charger le plugin XOA avant',
 
   // Original text: "Loading…"
   xosanLoading: 'Chargement…',

@@ -2,7 +2,6 @@ import Component from 'base-component'
 import cookies from 'cookies-js'
 import DocumentTitle from 'react-document-title'
 import Icon from 'icon'
-import isArray from 'lodash/isArray'
 import Link from 'link'
 import map from 'lodash/map'
 import PropTypes from 'prop-types'
@@ -11,7 +10,7 @@ import Shortcuts from 'shortcuts'
 import themes from 'themes'
 import _, { IntlProvider } from 'intl'
 import { blockXoaAccess } from 'xoa-updater'
-import { connectStore, routes } from 'utils'
+import { connectStore, getXoaPlan, routes } from 'utils'
 import { Notification } from 'notification'
 import { ShortcutManager } from 'react-shortcuts'
 import { ThemeProvider } from 'styled-components'
@@ -23,26 +22,28 @@ import { Container, Row, Col } from 'grid'
 
 import About from './about'
 import Backup from './backup'
-import BackupNg from './backup-ng'
 import Dashboard from './dashboard'
 import Home from './home'
 import Host from './host'
+import Hub from './hub'
 import Jobs from './jobs'
 import Menu from './menu'
 import Modal, { alert, FormModal } from 'modal'
 import New from './new'
+import NewLegacyBackup from './backup/new-legacy-backup'
 import NewVm from './new-vm'
 import Pool from './pool'
+import Proxies from './proxies'
 import Self from './self'
 import Settings from './settings'
 import Sr from './sr'
 import Tasks from './tasks'
 import User from './user'
 import Vm from './vm'
-import VmImport from './vm-import'
 import Xoa from './xoa'
 import XoaUpdates from './xoa/update'
 import Xosan from './xosan'
+import Import from './import'
 
 import keymap, { help } from '../keymap'
 
@@ -76,11 +77,21 @@ const BODY_STYLE = {
 @routes('home', {
   about: About,
   backup: Backup,
-  'backup-ng': BackupNg,
+  'backup-ng/*': {
+    onEnter: ({ location }, replace) =>
+      replace(location.pathname.replace('/backup-ng', '/backup')),
+  },
   dashboard: Dashboard,
   home: Home,
   'hosts/:id': Host,
   jobs: Jobs,
+  // 2019-10-03
+  // For test/development purposes. It can be removed after a while.
+  // To remove it, it's necessary to remove
+  //   - all messages only used in 'xo-app/backup/new-legacy-backup/index.js'
+  //      from 'common/intl/messages'.
+  //   - folder 'xo-app/backup/new-legacy-backup'.
+  'legacy-backup/new': NewLegacyBackup,
   new: New,
   'pools/:id': Pool,
   self: Self,
@@ -88,11 +99,13 @@ const BODY_STYLE = {
   'srs/:id': Sr,
   tasks: Tasks,
   user: User,
-  'vms/import': VmImport,
   'vms/new': NewVm,
   'vms/:id': Vm,
   xoa: Xoa,
   xosan: Xosan,
+  import: Import,
+  hub: Hub,
+  proxies: Proxies,
 })
 @connectStore(state => {
   return {
@@ -109,6 +122,10 @@ export default class XoApp extends Component {
     shortcuts: PropTypes.object.isRequired,
   }
   getChildContext = () => ({ shortcuts: shortcutManager })
+
+  state = {
+    dismissedSourceBanner: Boolean(cookies.get('dismissedSourceBanner')),
+  }
 
   displayOpenSourceDisclaimer() {
     const previousDisclaimer = cookies.get('previousDisclaimer')
@@ -130,6 +147,11 @@ export default class XoApp extends Component {
       )
       cookies.set('previousDisclaimer', now)
     }
+  }
+
+  dismissSourceBanner = () => {
+    cookies.set('dismissedSourceBanner', true, { expires: 24 * 60 * 60 }) // 1 day
+    this.setState({ dismissedSourceBanner: true })
   }
 
   componentDidMount() {
@@ -184,7 +206,9 @@ export default class XoApp extends Component {
                       message && (
                         <Row key={`${contextKey}_${key}`}>
                           <Col size={2} className='text-xs-right'>
-                            <strong>{isArray(keys) ? keys[0] : keys}</strong>
+                            <strong>
+                              {Array.isArray(keys) ? keys[0] : keys}
+                            </strong>
                           </Col>
                           <Col size={10}>{message}</Col>
                         </Row>
@@ -200,14 +224,19 @@ export default class XoApp extends Component {
 
   render() {
     const { signedUp, trial, registerNeeded } = this.props
-    const blocked = signedUp && blockXoaAccess(trial) // If we are under expired or unstable trial (signed up only)
+    // If we are under expired or unstable trial (signed up only)
+    const blocked =
+      signedUp &&
+      blockXoaAccess(trial) &&
+      !this.context.router.location.pathname.startsWith('/xoa/')
+    const plan = getXoaPlan()
 
     return (
       <IntlProvider>
         <ThemeProvider theme={themes.base}>
           <DocumentTitle title='Xen Orchestra'>
             <div>
-              {process.env.XOA_PLAN < 5 && registerNeeded && (
+              {plan !== 'Community' && registerNeeded && (
                 <div className='alert alert-danger mb-0'>
                   {_('notRegisteredDisclaimerInfo')}{' '}
                   <a
@@ -222,7 +251,7 @@ export default class XoApp extends Component {
                   </Link>
                 </div>
               )}
-              {+process.env.XOA_PLAN === 5 && (
+              {plan === 'Community' && !this.state.dismissedSourceBanner && (
                 <div className='alert alert-danger mb-0'>
                   <a
                     href='https://xen-orchestra.com/#!/xoa?pk_campaign=xo_source_banner'
@@ -230,7 +259,17 @@ export default class XoApp extends Component {
                     target='_blank'
                   >
                     {_('disclaimerText3')}
+                  </a>{' '}
+                  <a
+                    href='https://xen-orchestra.com/docs/installation.html#banner-and-warnings'
+                    rel='noopener noreferrer'
+                    target='_blank'
+                  >
+                    {_('disclaimerText4')}
                   </a>
+                  <button className='close' onClick={this.dismissSourceBanner}>
+                    &times;
+                  </button>
                 </div>
               )}
               <div style={CONTAINER_STYLE}>

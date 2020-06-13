@@ -1827,7 +1827,7 @@ export default {
   vdiAction: 'Acción',
 
   // Original text: "Attach disk"
-  vdiAttachDeviceButton: 'Adjuntar disco',
+  vdiAttachDevice: 'Adjuntar disco',
 
   // Original text: "New disk"
   vbdCreateDeviceButton: 'Nuevo disco',
@@ -1864,9 +1864,6 @@ export default {
 
   // Original text: 'Destination SR:'
   vdiMigrateSelectSr: undefined,
-
-  // Original text: 'Migrate all VDIs'
-  vdiMigrateAll: undefined,
 
   // Original text: 'No SR'
   vdiMigrateNoSr: undefined,
@@ -2142,7 +2139,7 @@ export default {
   vmChooseCoresPerSocket: undefined,
 
   // Original text: '{nSockets, number} socket{nSockets, plural, one {} other {s}} with {nCores, number} core{nCores, plural, one {} other {s}} per socket'
-  vmCoresPerSocket: undefined,
+  vmSocketsWithCoresPerSocket: undefined,
 
   // Original text: 'Incorrect cores per socket value'
   vmCoresPerSocketIncorrectValue: undefined,
@@ -2958,7 +2955,7 @@ export default {
   chooseSrForEachVdisModalSrLabel: undefined,
 
   // Original text: '* optional'
-  chooseSrForEachVdisModalOptionalEntry: undefined,
+  optionalEntry: undefined,
 
   // Original text: 'Delete VDI'
   deleteVdiModalTitle: undefined,
@@ -3058,9 +3055,6 @@ export default {
   // Original text: "Enable it if your certificate is rejected, but it's not recommended because your connection will not be secured."
   serverUnauthorizedCertificatesInfo: undefined,
 
-  // Original text: 'Disconnect server'
-  serverDisconnect: undefined,
-
   // Original text: 'username'
   serverPlaceHolderUser: undefined,
 
@@ -3090,12 +3084,6 @@ export default {
 
   // Original text: 'Connecting…'
   serverConnecting: undefined,
-
-  // Original text: 'Connected'
-  serverConnected: undefined,
-
-  // Original text: 'Disconnected'
-  serverDisconnected: undefined,
 
   // Original text: 'Authentication error'
   serverAuthFailed: undefined,

@@ -14,6 +14,7 @@ import { FormattedRelative, FormattedDate } from 'react-intl'
 import { Container, Row, Col } from 'grid'
 import { Number, Size } from 'editable'
 import {
+  createCollectionWrapper,
   createFinder,
   createGetObjectsOfType,
   createGetVmLastShutdownTime,
@@ -40,14 +41,20 @@ export default connectStore(() => {
   const getAttachedVgpu = createFinder(getVgpus, vgpu => vgpu.currentlyAttached)
 
   const getVgpuTypes = createGetObjectsOfType('vgpuType').pick(
-    createSelector(
-      getVgpus,
-      vgpus => map(vgpus, 'vgpuType')
-    )
+    createSelector(getVgpus, vgpus => map(vgpus, 'vgpuType'))
   )
 
   return {
     lastShutdownTime: createGetVmLastShutdownTime(),
+    tasks: createGetObjectsOfType('task')
+      .pick(
+        createSelector(
+          (_, { vm }) => vm.current_operations,
+          createCollectionWrapper(Object.keys)
+        )
+      )
+      .filter({ status: 'pending' })
+      .sort(),
     vgpu: getAttachedVgpu,
     vgpuTypes: getVgpuTypes,
   }
@@ -55,17 +62,17 @@ export default connectStore(() => {
   ({
     lastShutdownTime,
     statsOverview,
+    tasks,
     vgpu,
     vgpuTypes,
     vm,
     vmTotalDiskSpace,
   }) => {
     const {
-      addresses,
       CPUs: cpus,
-      current_operations: currentOperations,
       id,
       installTime,
+      mainIpAddress,
       memory,
       os_version: osVersion,
       power_state: powerState,
@@ -173,8 +180,8 @@ export default connectStore(() => {
           </Col>
           <Col mediumSize={3}>
             <BlockLink to={`/vms/${id}/network`}>
-              {addresses && addresses['0/ip'] ? (
-                <Copiable tagName='p'>{addresses['0/ip']}</Copiable>
+              {mainIpAddress !== undefined ? (
+                <Copiable tagName='p'>{mainIpAddress}</Copiable>
               ) : (
                 <p>{_('noIpv4Record')}</p>
               )}
@@ -221,12 +228,18 @@ export default connectStore(() => {
             </h2>
           </Col>
         </Row>
-        {isEmpty(currentOperations) ? null : (
+        {isEmpty(tasks) ? null : (
           <Row className='text-xs-center'>
             <Col>
-              <h4>
-                {_('vmCurrentStatus')} {map(currentOperations)[0]}
-              </h4>
+              <h4>{_('vmCurrentStatus')}</h4>
+              {map(tasks, task => (
+                <p>
+                  <strong>{task.name_label}</strong>
+                  {task.progress > 0 && (
+                    <span>: {Math.round(task.progress * 100)}%</span>
+                  )}
+                </p>
+              ))}
             </Col>
           </Row>
         )}

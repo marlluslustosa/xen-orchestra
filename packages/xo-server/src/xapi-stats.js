@@ -4,7 +4,6 @@ import synchronized from 'decorator-synchronized'
 import { BaseError } from 'make-error'
 import {
   defaults,
-  endsWith,
   findKey,
   forEach,
   identity,
@@ -58,7 +57,7 @@ function convertNanToNull(value) {
 
 async function getServerTimestamp(xapi, hostRef) {
   const serverLocalTime = await xapi.call('host.get_servertime', hostRef)
-  return Math.floor(parseDateTime(serverLocalTime).getTime() / 1e3)
+  return Math.floor(parseDateTime(serverLocalTime) / 1e3)
 }
 
 // -------------------------------------------------------------------
@@ -184,7 +183,7 @@ const STATS = {
       transformValue: value => value * 1024,
     },
     memory: {
-      test: metricType => endsWith(metricType, 'memory'),
+      test: metricType => metricType.endsWith('memory'),
     },
     cpus: {
       test: /^cpu(\d+)$/,

@@ -1,7 +1,6 @@
 import asyncMap from '@xen-orchestra/async-map'
 import createLogger from '@xen-orchestra/log'
 import deferrable from 'golike-defer'
-import escapeStringRegexp from 'escape-string-regexp'
 import execa from 'execa'
 import splitLines from 'split-lines'
 import { CancelToken, fromEvent, ignoreErrors } from 'promise-toolbox'
@@ -11,15 +10,13 @@ import { satisfies as versionSatisfies } from 'semver'
 import { utcFormat } from 'd3-time-format'
 import { basename, dirname } from 'path'
 import {
-  endsWith,
+  escapeRegExp,
   filter,
   find,
   includes,
   once,
   range,
   sortBy,
-  startsWith,
-  trim,
 } from 'lodash'
 import {
   chainVhd,
@@ -29,6 +26,8 @@ import {
 
 import createSizeStream from '../size-stream'
 import xapiObjectToXo from '../xapi-object-to-xo'
+import { debounceWithKey } from '../_pDebounceWithKey'
+import { decorateWith } from '../_decorateWith'
 import { lvs, pvs } from '../lvm'
 import {
   forEach,
@@ -46,6 +45,7 @@ import {
 
 // ===================================================================
 
+const DEBOUNCE_DELAY = 10e3
 const DELTA_BACKUP_EXT = '.json'
 const DELTA_BACKUP_EXT_LENGTH = DELTA_BACKUP_EXT.length
 const TAG_SOURCE_VM = 'xo:source_vm'
@@ -104,7 +104,7 @@ const getVdiTimestamp = name => {
 
 const getDeltaBackupNameWithoutExt = name =>
   name.slice(0, -DELTA_BACKUP_EXT_LENGTH)
-const isDeltaBackup = name => endsWith(name, DELTA_BACKUP_EXT)
+const isDeltaBackup = name => name.endsWith(DELTA_BACKUP_EXT)
 
 // -------------------------------------------------------------------
 
@@ -149,22 +149,20 @@ const listPartitions = (() => {
   })
 
   return device =>
-    execa
-      .stdout('partx', [
-        '--bytes',
-        '--output=NR,START,SIZE,NAME,UUID,TYPE',
-        '--pairs',
-        device.path,
-      ])
-      .then(stdout =>
-        mapFilter(splitLines(stdout), line => {
-          const partition = parseLine(line)
-          const { type } = partition
-          if (type != null && !IGNORED[+type]) {
-            return partition
-          }
-        })
-      )
+    execa('partx', [
+      '--bytes',
+      '--output=NR,START,SIZE,NAME,UUID,TYPE',
+      '--pairs',
+      device.path,
+    ]).then(({ stdout }) =>
+      mapFilter(splitLines(stdout), line => {
+        const partition = parseLine(line)
+        const { type } = partition
+        if (type != null && !IGNORED[+type]) {
+          return partition
+        }
+      })
+    )
 })()
 
 // handle LVM logical volumes automatically
@@ -281,8 +279,8 @@ const mountLvmPv = (device, partition) => {
   }
   args.push('--show', '-f', device.path)
 
-  return execa.stdout('losetup', args).then(stdout => {
-    const path = trim(stdout)
+  return execa('losetup', args).then(({ stdout }) => {
+    const path = stdout.trim()
     return {
       path,
       unmount: once(() =>
@@ -304,17 +302,20 @@ export default class {
     this._xo = xo
   }
 
+  @decorateWith(debounceWithKey, DEBOUNCE_DELAY, function keyFn(remoteId) {
+    return [this, remoteId]
+  })
   async listRemoteBackups(remoteId) {
     const handler = await this._xo.getRemoteHandler(remoteId)
 
     // List backups. (No delta)
-    const backupFilter = file => endsWith(file, '.xva')
+    const backupFilter = file => file.endsWith('.xva')
 
     const files = await handler.list('.')
     const backups = filter(files, backupFilter)
 
     // List delta backups.
-    const deltaDirs = filter(files, file => startsWith(file, 'vm_delta_'))
+    const deltaDirs = filter(files, file => file.startsWith('vm_delta_'))
 
     for (const deltaDir of deltaDirs) {
       const files = await handler.list(deltaDir)
@@ -330,18 +331,21 @@ export default class {
     return backups
   }
 
+  @decorateWith(debounceWithKey, DEBOUNCE_DELAY, function keyFn(remoteId) {
+    return [this, remoteId]
+  })
   async listVmBackups(remoteId) {
     const handler = await this._xo.getRemoteHandler(remoteId)
 
     const backups = []
 
     await asyncMap(handler.list('.'), entry => {
-      if (endsWith(entry, '.xva')) {
+      if (entry.endsWith('.xva')) {
         backups.push(parseVmBackupPath(entry))
-      } else if (startsWith(entry, 'vm_delta_')) {
+      } else if (entry.startsWith('vm_delta_')) {
         return handler.list(entry).then(children =>
           asyncMap(children, child => {
-            if (endsWith(child, '.json')) {
+            if (child.endsWith('.json')) {
               const path = `${entry}/${child}`
 
               const record = parseVmBackupPath(path)
@@ -372,7 +376,7 @@ export default class {
 
     const { datetime } = parseVmBackupPath(file)
     await Promise.all([
-      xapi.addTag(vm.$id, 'restored from backup'),
+      vm.add_tags('restored from backup'),
       xapi.editVm(vm.$id, {
         name_label: `${vm.name_label} (${shortDate(datetime * 1e3)})`,
       }),
@@ -411,9 +415,7 @@ export default class {
         localBaseUuid,
         {
           bypassVdiChainsCheck: force,
-          snapshotNameLabel: `XO_DELTA_EXPORT: ${targetSr.name_label} (${
-            targetSr.uuid
-          })`,
+          snapshotNameLabel: `XO_DELTA_EXPORT: ${targetSr.name_label} (${targetSr.uuid})`,
         }
       )
       $defer.onFailure(() => srcXapi.deleteVm(delta.vm.uuid))
@@ -827,11 +829,13 @@ export default class {
       delta.vm.name_label += ` (${shortDate(datetime * 1e3)})`
       delta.vm.tags.push('restored from backup')
 
-      vm = (await xapi.importDeltaVm(delta, {
-        disableStartAfterImport: false,
-        srId: sr !== undefined && sr._xapiId,
-        mapVdisSrs,
-      })).vm
+      vm = (
+        await xapi.importDeltaVm(delta, {
+          disableStartAfterImport: false,
+          srId: sr !== undefined && sr._xapiId,
+          mapVdisSrs,
+        })
+      ).vm
     } else {
       throw new Error(`Unsupported delta backup version: ${version}`)
     }
@@ -874,7 +878,7 @@ export default class {
     const files = await handler.list('.')
 
     const reg = new RegExp(
-      '^[^_]+_' + escapeStringRegexp(`${tag}_${vm.name_label}.xva`)
+      '^[^_]+_' + escapeRegExp(`${tag}_${vm.name_label}.xva`)
     )
     const backups = sortBy(filter(files, fileName => reg.test(fileName)))
 
@@ -899,9 +903,7 @@ export default class {
 
     xapi._assertHealthyVdiChains(vm)
 
-    const reg = new RegExp(
-      '^rollingSnapshot_[^_]+_' + escapeStringRegexp(tag) + '_'
-    )
+    const reg = new RegExp('^rollingSnapshot_[^_]+_' + escapeRegExp(tag) + '_')
     const snapshots = sortBy(
       filter(vm.$snapshots, snapshot => reg.test(snapshot.name_label)),
       'name_label'
@@ -938,9 +940,7 @@ export default class {
     const transferStart = Date.now()
     tag = 'DR_' + tag
     const reg = new RegExp(
-      '^' +
-        escapeStringRegexp(`${vm.name_label}_${tag}_`) +
-        '[0-9]{8}T[0-9]{6}Z$'
+      '^' + escapeRegExp(`${vm.name_label}_${tag}_`) + '[0-9]{8}T[0-9]{6}Z$'
     )
 
     const targetXapi = this._xo.getXapi(sr)
@@ -972,12 +972,13 @@ export default class {
       nameLabel: copyName,
     })
 
-    data.vm.update_blocked_operations(
-      'start',
-      'Start operation for this vm is blocked, clone it if you want to use it.'
-    )
-
-    await targetXapi.addTag(data.vm.$id, 'Disaster Recovery')
+    await Promise.all([
+      data.vm.add_tags('Disaster Recovery'),
+      data.vm.update_blocked_operations(
+        'start',
+        'Start operation for this vm is blocked, clone it if you want to use it.'
+      ),
+    ])
 
     if (!deleteOldBackupsFirst) {
       await this._removeVms(targetXapi, vmsToRemove)
@@ -1008,7 +1009,7 @@ export default class {
             // Currently, the filenames of the VHD changes over time
             // (delta → full), but the JSON is not updated, therefore the
             // VHD path may need to be fixed.
-            return endsWith(vhdPath, '_delta.vhd')
+            return vhdPath.endsWith('_delta.vhd')
               ? pFromCallback(cb => stat(vhdPath, cb)).then(
                   () => vhdPath,
                   error => {

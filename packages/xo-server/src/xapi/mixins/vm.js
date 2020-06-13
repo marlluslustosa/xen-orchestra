@@ -1,6 +1,6 @@
 import deferrable from 'golike-defer'
 import { find, gte, includes, isEmpty, lte, noop } from 'lodash'
-import { ignoreErrors, pCatch } from 'promise-toolbox'
+import { cancelable, ignoreErrors, pCatch } from 'promise-toolbox'
 import { NULL_REF } from 'xen-api'
 
 import { forEach, mapToArray, parseSize } from '../../utils'
@@ -18,10 +18,12 @@ const XEN_VIDEORAM_VALUES = [1, 2, 4, 8, 16]
 
 export default {
   // https://xapi-project.github.io/xen-api/classes/vm.html#checkpoint
-  async checkpointVm(vmId, nameLabel) {
+  @cancelable
+  async checkpointVm($cancelToken, vmId, nameLabel) {
     const vm = this.getObject(vmId)
     try {
       const ref = await this.callAsync(
+        $cancelToken,
         'VM.checkpoint',
         vm.$ref,
         nameLabel != null ? nameLabel : vm.name_label
@@ -29,7 +31,7 @@ export default {
       return this.barrier(ref)
     } catch (error) {
       if (error.code === 'VM_BAD_POWER_STATE') {
-        return this._snapshotVm(vm, nameLabel)
+        return this._snapshotVm($cancelToken, vm, nameLabel)
       }
       throw error
     }
@@ -57,6 +59,8 @@ export default {
       vgpuType = undefined,
       gpuGroup = undefined,
 
+      copyHostBiosStrings = false,
+
       ...props
     } = {},
     checkLimits
@@ -82,7 +86,22 @@ export default {
     )
     $defer.onFailure(() => this.deleteVm(vmRef))
 
-    // TODO: copy BIOS strings?
+    // Copy BIOS strings
+    // https://support.citrix.com/article/CTX230618
+    if (
+      isEmpty(template.bios_strings) &&
+      props.hvmBootFirmware !== 'uefi' &&
+      isVmHvm(template) &&
+      copyHostBiosStrings
+    ) {
+      await this.callAsync(
+        'VM.copy_bios_strings',
+        vmRef,
+        this.getObject(
+          props.affinityHost ?? this.getObject(template.$pool).master
+        ).$ref
+      )
+    }
 
     // Removes disks from the provision XML, we will create them by
     // ourselves.
@@ -107,15 +126,12 @@ export default {
 
       if (isHvm) {
         if (!isEmpty(vdis) || installMethod === 'network') {
-          const { HVM_boot_params: bootParams } = vm
-          let order = bootParams.order
-          if (order) {
-            order = 'n' + order.replace('n', '')
-          } else {
-            order = 'ncd'
-          }
+          const { order } = vm.HVM_boot_params
 
-          vm.set_HVM_boot_params({ ...bootParams, order })
+          vm.update_HVM_boot_params(
+            'order',
+            order ? 'n' + order.replace('n', '') : 'ncd'
+          )
         }
       } else {
         // PV
@@ -262,7 +278,7 @@ export default {
     affinityHost: {
       get: 'affinity',
       set: (value, vm) =>
-        vm.set_affinity(value ? this.getObject(value).$ref : NULL_REF),
+        vm.set_affinity(value ? vm.$xapi.getObject(value).$ref : NULL_REF),
     },
 
     autoPoweron: {
@@ -279,19 +295,20 @@ export default {
         if (virtualizationMode !== 'pv' && virtualizationMode !== 'hvm') {
           throw new Error(`The virtualization mode must be 'pv' or 'hvm'`)
         }
-        return vm
-          .set_domain_type(virtualizationMode)
-          ::pCatch({ code: 'MESSAGE_METHOD_UNKNOWN' }, () =>
-            vm.set_HVM_boot_policy(
+        return vm.set_domain_type !== undefined
+          ? vm.set_domain_type(virtualizationMode)
+          : vm.set_HVM_boot_policy(
               virtualizationMode === 'hvm' ? 'Boot order' : ''
             )
-          )
       },
     },
 
     coresPerSocket: {
       set: (coresPerSocket, vm) =>
-        vm.update_platform('cores-per-socket', String(coresPerSocket)),
+        vm.update_platform(
+          'cores-per-socket',
+          coresPerSocket !== null ? String(coresPerSocket) : null
+        ),
     },
 
     CPUs: 'cpus',
@@ -309,13 +326,16 @@ export default {
       get: vm => +vm.VCPUs_at_startup,
       set: [
         'VCPUs_at_startup',
-        (value, vm) => isVmRunning(vm) && vm.set_VCPUs_number_live(value),
+        (value, vm) =>
+          isVmRunning(vm) &&
+          vm.$xapi.call('VM.set_VCPUs_number_live', vm.$ref, String(value)),
       ],
     },
 
     cpuCap: {
       get: vm => vm.VCPUs_params.cap && +vm.VCPUs_params.cap,
-      set: (cap, vm) => vm.update_VCPUs_params('cap', String(cap)),
+      set: (cap, vm) =>
+        vm.update_VCPUs_params('cap', cap !== null ? String(cap) : null),
     },
 
     cpuMask: {
@@ -452,17 +472,18 @@ export default {
       get: vm => +vm.start_delay,
       set: (startDelay, vm) => vm.set_start_delay(startDelay),
     },
+
+    hvmBootFirmware: {
+      set: (firmware, vm) => vm.update_HVM_boot_params('firmware', firmware),
+    },
   }),
 
   async editVm(id, props, checkLimits) {
     return /* await */ this._editVm(this.getObject(id), props, checkLimits)
   },
 
-  async revertVm(snapshotId, snapshotBefore = true) {
+  async revertVm(snapshotId) {
     const snapshot = this.getObject(snapshotId)
-    if (snapshotBefore) {
-      await this._snapshotVm(snapshot.$snapshot_of)
-    }
     await this.callAsync('VM.revert', snapshot.$ref)
     if (snapshot.snapshot_info['power-state-at-snapshot'] === 'Running') {
       const vm = await this.barrier(snapshot.snapshot_of)

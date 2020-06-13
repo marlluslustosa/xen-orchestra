@@ -1,10 +1,9 @@
-import { startsWith } from 'lodash'
-
+import * as sensitiveValues from './sensitive-values'
 import ensureArray from './_ensureArray'
+import { extractIpFromVmNetworks } from './_extractIpFromVmNetworks'
 import {
   extractProperty,
   forEach,
-  isArray,
   isEmpty,
   mapFilter,
   mapToArray,
@@ -28,7 +27,7 @@ function link(obj, prop, idField = '$id') {
     return dynamicValue // Properly handles null and undefined.
   }
 
-  if (isArray(dynamicValue)) {
+  if (Array.isArray(dynamicValue)) {
     return mapToArray(dynamicValue, idField)
   }
 
@@ -54,9 +53,9 @@ function toTimestamp(date) {
     return timestamp
   }
 
-  const ms = parseDateTime(date)?.getTime()
+  const ms = parseDateTime(date, 0)
 
-  return ms === undefined || ms === 0 ? null : Math.round(ms / 1000)
+  return ms === 0 ? null : Math.round(ms / 1000)
 }
 
 // ===================================================================
@@ -78,6 +77,7 @@ const TRANSFORMS = {
         cores: cpuInfo && +cpuInfo.cpu_count,
         sockets: cpuInfo && +cpuInfo.socket_count,
       },
+      zstdSupported: obj.restrictions.restrict_zstd_export === 'false',
 
       // TODO
       // - ? networks = networksByPool.items[pool.id] (network.$pool.id)
@@ -119,7 +119,7 @@ const TRANSFORMS = {
           size: update.installation_size,
         }
 
-        if (startsWith(update.name_label, 'XS')) {
+        if (update.name_label.startsWith('XS')) {
           // It's a patch update but for homogeneity, we're still using pool_patches
         } else {
           supplementalPacks.push(formattedUpdate)
@@ -143,7 +143,8 @@ const TRANSFORMS = {
       },
       current_operations: obj.current_operations,
       hostname: obj.hostname,
-      iSCSI_name: otherConfig.iscsi_iqn || null,
+      iscsiIqn: obj.iscsi_iqn ?? otherConfig.iscsi_iqn ?? '',
+      zstdSupported: obj.license_params.restrict_zstd_export === 'false',
       license_params: obj.license_params,
       license_server: obj.license_server,
       license_expiry: toTimestamp(obj.license_params.expiry),
@@ -197,6 +198,9 @@ const TRANSFORMS = {
       tags: obj.tags,
       version: softwareVersion.product_version,
       productBrand: softwareVersion.product_brand,
+      hvmCapable: obj.capabilities.some(capability =>
+        capability.startsWith('hvm')
+      ),
 
       // TODO: dedupe.
       PIFs: link(obj, 'PIFs'),
@@ -265,6 +269,17 @@ const TRANSFORMS = {
       }
     }
 
+    // Build a { taskId → operation } map instead of forwarding the
+    // { taskRef → operation } map directly
+    const currentOperations = {}
+    const { $xapi } = obj
+    forEach(obj.current_operations, (operation, ref) => {
+      const task = $xapi.getObjectByRef(ref, undefined)
+      if (task !== undefined) {
+        currentOperations[task.$id] = operation
+      }
+    })
+
     const vm = {
       // type is redefined after for controllers/, templates &
       // snapshots.
@@ -273,6 +288,7 @@ const TRANSFORMS = {
       addresses: (guestMetrics && guestMetrics.networks) || null,
       affinityHost: link(obj, 'affinity'),
       auto_poweron: otherConfig.auto_poweron === 'true',
+      bios_strings: obj.bios_strings,
       boot: obj.HVM_boot_params,
       CPUs: {
         max: +obj.VCPUs_max,
@@ -281,7 +297,7 @@ const TRANSFORMS = {
             ? +metrics.VCPUs_number
             : +obj.VCPUs_at_startup,
       },
-      current_operations: obj.current_operations,
+      current_operations: currentOperations,
       docker: (function() {
         const monitor = otherConfig['xscontainer-monitor']
         if (!monitor) {
@@ -309,6 +325,7 @@ const TRANSFORMS = {
         }
       })(),
       expNestedHvm: obj.platform['exp-nested-hvm'] === 'true',
+      mainIpAddress: extractIpFromVmNetworks(guestMetrics?.networks),
       high_availability: obj.ha_restart_priority,
 
       memory: (function() {
@@ -474,7 +491,10 @@ const TRANSFORMS = {
       attached: Boolean(obj.currently_attached),
       host: link(obj, 'host'),
       SR: link(obj, 'SR'),
-      device_config: obj.device_config,
+      device_config: sensitiveValues.replace(
+        obj.device_config,
+        '* obfuscated *'
+      ),
       otherConfig: obj.other_config,
     }
   },
@@ -489,6 +509,7 @@ const TRANSFORMS = {
 
       attached: Boolean(obj.currently_attached),
       isBondMaster: !isEmpty(obj.bond_master_of),
+      isBondSlave: obj.bond_slave_of !== 'OpaqueRef:NULL',
       device: obj.device,
       deviceName: metrics && metrics.device_name,
       dns: obj.DNS,
@@ -519,6 +540,7 @@ const TRANSFORMS = {
 
       name_description: obj.name_description,
       name_label: obj.name_label,
+      parent: obj.sm_config['vhd-parent'],
       size: +obj.virtual_size,
       snapshots: link(obj, 'snapshots'),
       tags: obj.tags,

@@ -1255,13 +1255,13 @@ export default {
   remoteNamePlaceHolder: 'hedef adı *',
 
   // Original text: "Name *"
-  remoteMyNamePlaceHolder: 'Ad *',
+  remoteMyNamePlaceHolder: 'Ad',
 
   // Original text: "/path/to/backup"
   remoteLocalPlaceHolderPath: '/yedek/için/yol',
 
   // Original text: "host *"
-  remoteNfsPlaceHolderHost: 'sunucu *',
+  remoteNfsPlaceHolderHost: 'sunucu',
 
   // Original text: 'Port'
   remoteNfsPlaceHolderPort: undefined,
@@ -1282,7 +1282,7 @@ export default {
   remoteSmbPlaceHolderDomain: 'Domain',
 
   // Original text: "<address>\\\\<share> *"
-  remoteSmbPlaceHolderAddressShare: '<paylaşım>\\\\<adresi> *',
+  remoteSmbPlaceHolderAddressShare: '<paylaşım>\\\\<adresi>',
 
   // Original text: "password(fill to edit)"
   remotePlaceHolderPassword: 'parola(düzenlemek için doldurun)',
@@ -2303,7 +2303,7 @@ export default {
   vdiAction: 'Aksiyon',
 
   // Original text: "Attach disk"
-  vdiAttachDeviceButton: 'Disk tak',
+  vdiAttachDevice: 'Disk tak',
 
   // Original text: "New disk"
   vbdCreateDeviceButton: 'Yeni disk',
@@ -2340,9 +2340,6 @@ export default {
 
   // Original text: "Destination SR:"
   vdiMigrateSelectSr: 'Hedef SR:',
-
-  // Original text: "Migrate all VDIs"
-  vdiMigrateAll: "Tüm VDI'ları taşı",
 
   // Original text: "No SR"
   vdiMigrateNoSr: 'SR yok',
@@ -2660,7 +2657,7 @@ export default {
   vmChooseCoresPerSocket: 'Varsayılan davranış',
 
   // Original text: "{nSockets, number} socket{nSockets, plural, one {} other {s}} with {nCores, number} core{nCores, plural, one {} other {s}} per socket"
-  vmCoresPerSocket:
+  vmSocketsWithCoresPerSocket:
     '{nSockets, number} soket ve her sokette  {nCores, number} çekirdek',
 
   // Original text: "None"
@@ -3732,7 +3729,7 @@ export default {
   chooseSrForEachVdisModalSrLabel: 'SR*',
 
   // Original text: "* optional"
-  chooseSrForEachVdisModalOptionalEntry: '* opsiyonel',
+  optionalEntry: '* opsiyonel',
 
   // Original text: "Delete job{nJobs, plural, one {} other {s}}"
   deleteJobsModalTitle: 'İşi(leri) sil',
@@ -3916,9 +3913,6 @@ export default {
   serverUnauthorizedCertificatesInfo:
     'Sertifikanız reddedildiğinde bunu yapın ancak bağlantınız güvenli olmayacağı için tavsiye edilmez.',
 
-  // Original text: "Disconnect server"
-  serverDisconnect: 'Sunucu bağlantısını kes',
-
   // Original text: "username"
   serverPlaceHolderUser: 'kullanıcı adı',
 
@@ -3948,12 +3942,6 @@ export default {
 
   // Original text: "Connecting…"
   serverConnecting: 'Bağlanıyor...',
-
-  // Original text: "Connected"
-  serverConnected: 'Bağlandı',
-
-  // Original text: "Disconnected"
-  serverDisconnected: 'Bağlantı kesildi',
 
   // Original text: "Authentication error"
   serverAuthFailed: 'Kimlik doğrulama hatası',
@@ -4873,10 +4861,10 @@ export default {
   xosanState_scanningSr: 'SR taranıyor...',
 
   // Original text: "Install cloud plugin first"
-  xosanInstallCloudPlugin: 'Önce bulut eklentisini kurun',
+  xosanInstallCloudPlugin: 'Önce XOA eklentisini kurun',
 
   // Original text: "Load cloud plugin first"
-  xosanLoadCloudPlugin: 'Önce bulut eklentisini yükleyin',
+  xosanLoadCloudPlugin: 'Önce XOA eklentisini yükleyin',
 
   // Original text: "Register your appliance first"
   xosanRegister: "Önce XOSAN'ın kaydını yapın",

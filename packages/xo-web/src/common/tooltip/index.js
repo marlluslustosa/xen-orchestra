@@ -1,5 +1,4 @@
 import classNames from 'classnames'
-import isString from 'lodash/isString'
 import PropTypes from 'prop-types'
 import React from 'react'
 import ReactDOM from 'react-dom'
@@ -58,6 +57,12 @@ export class TooltipViewer extends Component {
 
 // ===================================================================
 
+// Wrap disabled HTML element before wrapping it with Tooltip
+// <Tooltip>
+//   <div>
+//     <MyComponent disabled />
+//   </div>
+// </Tooltip>
 export default class Tooltip extends Component {
   static propTypes = {
     children: PropTypes.oneOfType([PropTypes.element, PropTypes.string]),
@@ -154,7 +159,7 @@ export default class Tooltip extends Component {
       return <span />
     }
 
-    if (isString(children)) {
+    if (typeof children === 'string') {
       return <span>{children}</span>
     }
 

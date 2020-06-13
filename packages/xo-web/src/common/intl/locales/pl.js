@@ -722,13 +722,13 @@ export default {
   remoteNamePlaceHolder: 'Nazwa zdalna*',
 
   // Original text: "Name *"
-  remoteMyNamePlaceHolder: 'Nazwa *',
+  remoteMyNamePlaceHolder: 'Nazwa',
 
   // Original text: "/path/to/backup"
   remoteLocalPlaceHolderPath: '/ścieżka/do/kopii/zapasowej',
 
   // Original text: "host *"
-  remoteNfsPlaceHolderHost: 'Host *',
+  remoteNfsPlaceHolderHost: 'Host',
 
   // Original text: "/path/to/backup"
   remoteNfsPlaceHolderPath: '/ścieżka/do/kopii/zapasowej',
@@ -746,7 +746,7 @@ export default {
   remoteSmbPlaceHolderDomain: 'Domena',
 
   // Original text: "<address>\\<share> *"
-  remoteSmbPlaceHolderAddressShare: '<adres>\\<udział> *',
+  remoteSmbPlaceHolderAddressShare: '<adres>\\<udział>',
 
   // Original text: "password(fill to edit)"
   remotePlaceHolderPassword: 'Hasło (wypełnij)',
@@ -1567,7 +1567,7 @@ export default {
   vdiAction: 'Akcja',
 
   // Original text: "Attach disk"
-  vdiAttachDeviceButton: 'Dołącz dysk',
+  vdiAttachDevice: 'Dołącz dysk',
 
   // Original text: "New disk"
   vbdCreateDeviceButton: 'Nowy dysk',
@@ -1598,9 +1598,6 @@ export default {
 
   // Original text: "Destination SR:"
   vdiMigrateSelectSr: 'Destination SR:',
-
-  // Original text: "Migrate all VDIs"
-  vdiMigrateAll: 'Migruj wszystkie VDIs',
 
   // Original text: "No SR"
   vdiMigrateNoSr: 'No SR',
@@ -2647,9 +2644,6 @@ export default {
 
   // Original text: "Read Only"
   serverReadOnly: 'Tylko do odczytu',
-
-  // Original text: "Disconnect server"
-  serverDisconnect: 'Rozłącz serwer',
 
   // Original text: "username"
   serverPlaceHolderUser: 'Użytkownik',

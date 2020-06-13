@@ -2,6 +2,10 @@ import { Strategy } from 'passport-saml'
 
 // ===================================================================
 
+const DEFAULTS = {
+  disableRequestedAuthnContext: false,
+}
+
 export const configurationSchema = {
   description:
     'Important: When registering your instance to your identity provider, you must configure its callback URL to `https://<xo.company.net>/signin/saml/callback`!',
@@ -24,8 +28,17 @@ export const configurationSchema = {
     },
     usernameField: {
       title: 'Username field',
-      description: 'Field to use as the XO username',
+      description: `Field to use as the XO username
+
+You should try \`http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress\` if you are using Microsoft Azure Active Directory.
+      `,
       type: 'string',
+    },
+    disableRequestedAuthnContext: {
+      title: "Don't request an authentication context",
+      description: 'This is known to help when using Active Directory',
+      default: DEFAULTS.disableRequestedAuthnContext,
+      type: 'boolean',
     },
   },
   required: ['cert', 'entryPoint', 'issuer', 'usernameField'],
@@ -34,26 +47,35 @@ export const configurationSchema = {
 // ===================================================================
 
 class AuthSamlXoPlugin {
-  constructor({ xo }) {
+  constructor({ staticConfig, xo }) {
     this._conf = null
+    this._strategyOptions = staticConfig.strategyOptions
+    this._unregisterPassportStrategy = undefined
     this._usernameField = null
     this._xo = xo
   }
 
-  configure({ usernameField, ...conf }) {
+  async configure({ usernameField, ...conf }, { loaded }) {
     this._usernameField = usernameField
     this._conf = {
+      ...this._strategyOptions,
+      ...DEFAULTS,
       ...conf,
 
       // must match the callback URL
       path: '/signin/saml/callback',
+    }
+
+    if (loaded) {
+      await this.unload()
+      await this.load()
     }
   }
 
   load() {
     const xo = this._xo
 
-    xo.registerPassportStrategy(
+    this._unregisterPassportStrategy = xo.registerPassportStrategy(
       new Strategy(this._conf, async (profile, done) => {
         const name = profile[this._usernameField]
         if (!name) {
@@ -69,6 +91,10 @@ class AuthSamlXoPlugin {
         }
       })
     )
+  }
+
+  unload() {
+    this._unregisterPassportStrategy()
   }
 }
 

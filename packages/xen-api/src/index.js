@@ -4,7 +4,7 @@ import kindOf from 'kindof'
 import ms from 'ms'
 import httpRequest from 'http-request-plus'
 import { EventEmitter } from 'events'
-import { isArray, map, noop, omit } from 'lodash'
+import { map, noop, omit } from 'lodash'
 import {
   cancelable,
   defer,
@@ -25,7 +25,6 @@ import isReadOnlyCall from './_isReadOnlyCall'
 import makeCallSetting from './_makeCallSetting'
 import parseUrl from './_parseUrl'
 import replaceSensitiveValues from './_replaceSensitiveValues'
-import XapiError from './_XapiError'
 
 // ===================================================================
 
@@ -39,6 +38,8 @@ const { defineProperties, defineProperty, freeze, keys: getKeys } = Object
 // -------------------------------------------------------------------
 
 export const NULL_REF = 'OpaqueRef:NULL'
+
+export { isOpaqueRef }
 
 // -------------------------------------------------------------------
 
@@ -99,6 +100,9 @@ export class Xapi extends EventEmitter {
     this._sessionId = undefined
     this._status = DISCONNECTED
 
+    this._watchEventsError = undefined
+    this._lastEventFetchedTimestamp = undefined
+
     this._debounce = opts.debounce ?? 200
     this._objects = new Collection()
     this._objectsByRef = { __proto__: null }
@@ -110,7 +114,7 @@ export class Xapi extends EventEmitter {
     this._watchedTypes = undefined
     const { watchEvents } = opts
     if (watchEvents !== false) {
-      if (isArray(watchEvents)) {
+      if (Array.isArray(watchEvents)) {
         this._watchedTypes = watchEvents
       }
       this.watchEvents()
@@ -167,22 +171,6 @@ export class Xapi extends EventEmitter {
 
     try {
       await this._sessionOpen()
-
-      // Uses introspection to list available types.
-      const types = (this._types = (await this._interruptOnDisconnect(
-        this._call('system.listMethods')
-      ))
-        .filter(isGetAllRecordsMethod)
-        .map(method => method.slice(0, method.indexOf('.'))))
-      this._lcToTypes = { __proto__: null }
-      types.forEach(type => {
-        const lcType = type.toLowerCase()
-        if (lcType !== type) {
-          this._lcToTypes[lcType] = type
-        }
-      })
-
-      this._pool = (await this.getAllRecords('pool'))[0]
 
       debug('%s: connected', this._humanId)
       this._status = CONNECTED
@@ -295,6 +283,17 @@ export class Xapi extends EventEmitter {
     return this.call(`${type}.set_${field}`, ref, value).then(noop)
   }
 
+  setFields(type, ref, fields) {
+    return Promise.all(
+      getKeys(fields).map(field => {
+        const value = fields[field]
+        if (value !== undefined) {
+          return this.call(`${type}.set_${field}`, ref, value)
+        }
+      })
+    ).then(noop)
+  }
+
   setFieldEntries(type, ref, field, entries) {
     return Promise.all(
       getKeys(entries).map(entry => {
@@ -356,6 +355,9 @@ export class Xapi extends EventEmitter {
 
         // this is an inactivity timeout (unclear in Node doc)
         timeout: this._httpInactivityTimeout,
+
+        // Support XS <= 6.5 with Node => 12
+        minVersion: 'TLSv1',
       }
     )
 
@@ -423,6 +425,9 @@ export class Xapi extends EventEmitter {
 
         // this is an inactivity timeout (unclear in Node doc)
         timeout: this._httpInactivityTimeout,
+
+        // Support XS <= 6.5 with Node => 12
+        minVersion: 'TLSv1',
       }
     )
 
@@ -495,6 +500,14 @@ export class Xapi extends EventEmitter {
     return this._objectsFetched
   }
 
+  get lastEventFetchedTimestamp() {
+    return this._lastEventFetchedTimestamp
+  }
+
+  get watchEventsError() {
+    return this._watchEventsError
+  }
+
   // ensure we have received all events up to this call
   //
   // optionally returns the up to date object for the given ref
@@ -512,7 +525,13 @@ export class Xapi extends EventEmitter {
     const { promise, resolve } = defer()
     eventWatchers[key] = resolve
 
-    await this._sessionCall('pool.add_to_other_config', [poolRef, key, ''])
+    await this._sessionCall('pool.add_to_other_config', [
+      poolRef,
+      key,
+
+      // use ms timestamp as values to enable identification of stale entries
+      String(Date.now()),
+    ])
 
     await promise
 
@@ -631,9 +650,7 @@ export class Xapi extends EventEmitter {
         kindOf(result)
       )
       return result
-    } catch (e) {
-      const error = e instanceof Error ? e : XapiError.wrap(e)
-
+    } catch (error) {
       // do not log the session ID
       //
       // TODO: should log at the session level to avoid logging sensitive
@@ -642,7 +659,11 @@ export class Xapi extends EventEmitter {
 
       error.call = {
         method,
-        params: replaceSensitiveValues(params, '* obfuscated *'),
+        params:
+          // it pass server's credentials as param
+          method === 'session.login_with_password'
+            ? '* obfuscated *'
+            : replaceSensitiveValues(params, '* obfuscated *'),
       }
 
       debug(
@@ -739,12 +760,37 @@ export class Xapi extends EventEmitter {
         },
       }
     )
+
+    const oldPoolRef = this._pool?.$ref
+    this._pool = (await this.getAllRecords('pool'))[0]
+
+    // if the pool ref has changed, it means that the XAPI has been restarted or
+    // it's not the same XAPI, we need to refetch the available types and reset
+    // the event loop in that case
+    if (this._pool.$ref !== oldPoolRef) {
+      // Uses introspection to list available types.
+      const types = (this._types = (
+        await this._interruptOnDisconnect(this._call('system.listMethods'))
+      )
+        .filter(isGetAllRecordsMethod)
+        .map(method => method.slice(0, method.indexOf('.'))))
+      this._lcToTypes = { __proto__: null }
+      types.forEach(type => {
+        const lcType = type.toLowerCase()
+        if (lcType !== type) {
+          this._lcToTypes[lcType] = type
+        }
+      })
+    }
   }
 
   _setUrl(url) {
     this._humanId = `${this._auth.user}@${url.hostname}`
     this._transport = autoTransport({
-      allowUnauthorized: this._allowUnauthorized,
+      secureOptions: {
+        minVersion: 'TLSv1',
+        rejectUnauthorized: !this._allowUnauthorized,
+      },
       url,
     })
     this._url = url
@@ -936,21 +982,28 @@ export class Xapi extends EventEmitter {
 
         let result
         try {
-          result = await this._sessionCall(
+          // don't use _sessionCall because a session failure should break the
+          // loop and trigger a complete refetch
+          result = await this._call(
             'event.from',
             [
+              this._sessionId,
               types,
               fromToken,
               EVENT_TIMEOUT + 0.1, // must be float for XML-RPC transport
             ],
             EVENT_TIMEOUT * 1e3 * 1.1
           )
+          this._lastEventFetchedTimestamp = Date.now()
+          this._watchEventsError = undefined
         } catch (error) {
-          if (error?.code === 'EVENTS_LOST') {
+          const code = error?.code
+          if (code === 'EVENTS_LOST' || code === 'SESSION_INVALID') {
             // eslint-disable-next-line no-labels
             continue mainLoop
           }
 
+          this._watchEventsError = error
           console.warn('_watchEvents', error)
           await pDelay(this._eventPollDelay)
           continue
@@ -960,6 +1013,8 @@ export class Xapi extends EventEmitter {
         this._processEvents(result.events)
 
         // detect and fix disappearing tasks (e.g. when toolstack restarts)
+        //
+        // FIXME: only if 'task' in 'types
         if (result.valid_ref_counts.task !== this._nTasks) {
           await this._refreshCachedRecords(['task'])
         }
@@ -1042,7 +1097,32 @@ export class Xapi extends EventEmitter {
       )
 
       const getters = { $pool: getPool }
-      const props = { $type: type }
+      const props = {
+        $call: function(method, ...args) {
+          return xapi.call(`${type}.${method}`, this.$ref, ...args)
+        },
+        $callAsync: function(method, ...args) {
+          return xapi.callAsync(`${type}.${method}`, this.$ref, ...args)
+        },
+        $type: type,
+      }
+      ;(function addMethods(object) {
+        Object.getOwnPropertyNames(object).forEach(name => {
+          // dont trigger getters (eg sessionId)
+          const fn = Object.getOwnPropertyDescriptor(object, name).value
+          if (typeof fn === 'function' && name.startsWith(type + '_')) {
+            const key = '$' + name.slice(type.length + 1)
+            assert.strictEqual(props[key], undefined)
+            props[key] = function(...args) {
+              return xapi[name](this.$ref, ...args)
+            }
+          }
+        })
+        const proto = Object.getPrototypeOf(object)
+        if (proto !== null) {
+          addMethods(proto)
+        }
+      })(xapi)
       fields.forEach(field => {
         props[`set_${field}`] = function(value) {
           return xapi.setField(this.$type, this.$ref, field, value)
@@ -1051,7 +1131,7 @@ export class Xapi extends EventEmitter {
         const $field = (field in RESERVED_FIELDS ? '$$' : '$') + field
 
         const value = data[field]
-        if (isArray(value)) {
+        if (Array.isArray(value)) {
           if (value.length === 0 || isOpaqueRef(value[0])) {
             getters[$field] = function() {
               const value = this[field]
@@ -1059,9 +1139,14 @@ export class Xapi extends EventEmitter {
             }
           }
 
-          props[`add_to_${field}`] = function(...values) {
+          props[`add_${field}`] = function(value) {
             return xapi
-              .call(`${type}.add_${field}`, this.$ref, values)
+              .call(`${type}.add_${field}`, this.$ref, value)
+              .then(noop)
+          }
+          props[`remove_${field}`] = function(value) {
+            return xapi
+              .call(`${type}.remove_${field}`, this.$ref, value)
               .then(noop)
           }
         } else if (value !== null && typeof value === 'object') {

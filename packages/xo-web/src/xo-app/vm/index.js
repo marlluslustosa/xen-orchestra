@@ -8,7 +8,7 @@ import PropTypes from 'prop-types'
 import React, { cloneElement } from 'react'
 import { Host, Pool } from 'render-xo-item'
 import { Text, XoSelect } from 'editable'
-import { assign, isEmpty, map, pick } from 'lodash'
+import { isEmpty, map, pick } from 'lodash'
 import { editVm, fetchVmStats, isVmRunning, migrateVm } from 'xo'
 import { Container, Row, Col } from 'grid'
 import { connectStore, routes } from 'utils'
@@ -30,6 +30,7 @@ import TabContainers from './tab-containers'
 import TabDisks from './tab-disks'
 import TabNetwork from './tab-network'
 import TabSnapshots from './tab-snapshots'
+import TabBackups from './tab-backups'
 import TabLogs from './tab-logs'
 import TabAdvanced from './tab-advanced'
 import VmActionBar from './action-bar'
@@ -38,6 +39,7 @@ import VmActionBar from './action-bar'
 
 @routes('general', {
   advanced: TabAdvanced,
+  backups: TabBackups,
   console: TabConsole,
   containers: TabContainers,
   disks: TabDisks,
@@ -61,10 +63,7 @@ import VmActionBar from './action-bar'
     .sort()
   const getVdis = createGetVmDisks(getVm)
   const getSrs = createGetObjectsOfType('SR').pick(
-    createSelector(
-      getVdis,
-      vdis => map(vdis, '$SR')
-    )
+    createSelector(getVdis, vdis => map(vdis, '$SR'))
   )
 
   const getVmTotalDiskSpace = createSumBy(createGetVmDisks(getVm), 'size')
@@ -168,14 +167,19 @@ export default class Vm extends BaseComponent {
   _setNameLabel = nameLabel => editVm(this.props.vm, { name_label: nameLabel })
   _migrateVm = host => migrateVm(this.props.vm, host)
 
+  _getVmState = createSelector(
+    () => this.props.vm.power_state,
+    () => this.props.vm.current_operations,
+    (powerState, operations) => (!isEmpty(operations) ? 'Busy' : powerState)
+  )
+
   header() {
     const { vm, container, pool } = this.props
     if (!vm) {
       return <Icon icon='loading' />
     }
-    const state = isEmpty(vm.current_operations)
-      ? vm.power_state.toLowerCase()
-      : 'busy'
+    const state = this._getVmState()
+
     return (
       <Container>
         <Row>
@@ -207,8 +211,21 @@ export default class Vm extends BaseComponent {
               </span>
             </span>
             <h2>
-              <Tooltip content={state}>
-                <Icon icon={`vm-${state}`} />
+              <Tooltip
+                content={
+                  <span>
+                    {_(`powerState${state}`)}
+                    {state === 'Busy' && (
+                      <span>
+                        {' ('}
+                        {map(vm.current_operations)[0]}
+                        {')'}
+                      </span>
+                    )}
+                  </span>
+                }
+              >
+                <Icon icon={`vm-${state.toLowerCase()}`} />
               </Tooltip>{' '}
               <Text value={vm.name_label} onChange={this._setNameLabel} />
             </h2>{' '}
@@ -252,6 +269,7 @@ export default class Vm extends BaseComponent {
                   )}
                 </NavLink>
               )}
+              <NavLink to={`/vms/${vm.id}/backups`}>{_('backup')}</NavLink>
               <NavLink to={`/vms/${vm.id}/logs`}>{_('logsTabName')}</NavLink>
               {vm.docker && (
                 <NavLink to={`/vms/${vm.id}/containers`}>
@@ -277,7 +295,7 @@ export default class Vm extends BaseComponent {
       return <h1>{_('statusLoading')}</h1>
     }
 
-    const childProps = assign(
+    const childProps = Object.assign(
       pick(this.props, [
         'container',
         'pool',

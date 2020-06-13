@@ -17,14 +17,12 @@ const getKeys = require('lodash/keys')
 const hrp = require('http-request-plus').default
 const humanFormat = require('human-format')
 const identity = require('lodash/identity')
-const isArray = require('lodash/isArray')
 const isObject = require('lodash/isObject')
 const micromatch = require('micromatch')
 const nicePipe = require('nice-pipe')
 const pairs = require('lodash/toPairs')
 const pick = require('lodash/pick')
 const pump = require('pump')
-const startsWith = require('lodash/startsWith')
 const prettyMs = require('pretty-ms')
 const progressStream = require('progress-stream')
 const pw = require('pw')
@@ -81,7 +79,7 @@ function parseParameters(args) {
     const name = matches[1]
     let value = matches[2]
 
-    if (startsWith(value, 'json:')) {
+    if (value.startsWith('json:')) {
       value = JSON.parse(value.slice(5))
     }
 
@@ -200,7 +198,18 @@ function main(args) {
     return exports[fnName](args.slice(1))
   }
 
-  return exports.call(args)
+  return exports.call(args).catch(error => {
+    if (!(error != null && error.code === 10 && 'errors' in error.data)) {
+      throw error
+    }
+
+    const lines = [error.message]
+    const { errors } = error.data
+    errors.forEach(error => {
+      lines.push(`  property ${error.property}: ${error.message}`)
+    })
+    throw lines.join('\n')
+  })
 }
 exports = module.exports = main
 
@@ -288,7 +297,11 @@ async function listCommands(args) {
       str.push(
         name,
         '=<',
-        type == null ? 'unknown type' : isArray(type) ? type.join('|') : type,
+        type == null
+          ? 'unknown type'
+          : Array.isArray(type)
+          ? type.join('|')
+          : type,
         '>'
       )
 
@@ -373,7 +386,7 @@ async function call(args) {
         printProgress
       )
 
-      return fromCallback(cb => pump(response, progress, output, cb))
+      return fromCallback(pump, response, progress, output)
     }
 
     if (key === '$sendTo') {

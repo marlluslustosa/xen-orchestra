@@ -1,10 +1,11 @@
-import { format, JsonRpcError } from 'json-rpc-peer'
+import { format } from 'json-rpc-peer'
 
 // ===================================================================
 
 export async function set({
   host,
 
+  iscsiIqn,
   multipathing,
   name_label: nameLabel,
   name_description: nameDescription,
@@ -12,6 +13,13 @@ export async function set({
   host = this.getXapiObject(host)
 
   await Promise.all([
+    iscsiIqn !== undefined &&
+      (host.iscsi_iqn !== undefined
+        ? host.set_iscsi_iqn(iscsiIqn)
+        : host.update_other_config(
+            'iscsi_iqn',
+            iscsiIqn === '' ? null : iscsiIqn
+          )),
     nameDescription !== undefined && host.set_name_description(nameDescription),
     nameLabel !== undefined && host.set_name_label(nameLabel),
     multipathing !== undefined &&
@@ -23,6 +31,7 @@ set.description = 'changes the properties of an host'
 
 set.params = {
   id: { type: 'string' },
+  iscsiIqn: { type: 'string', optional: true },
   name_label: {
     type: 'string',
     optional: true,
@@ -211,6 +220,20 @@ emergencyShutdownHost.resolve = {
 
 // -------------------------------------------------------------------
 
+export async function isHostServerTimeConsistent({ host }) {
+  return this.getXapi(host).isHostServerTimeConsistent(host._xapiRef)
+}
+
+isHostServerTimeConsistent.params = {
+  host: { type: 'string' },
+}
+
+isHostServerTimeConsistent.resolve = {
+  host: ['host', 'host', 'administrate'],
+}
+
+// -------------------------------------------------------------------
+
 export function stats({ host, granularity }) {
   return this.getXapiHostStats(host._xapiId, granularity)
 }
@@ -238,14 +261,8 @@ async function handleInstallSupplementalPack(req, res, { hostId }) {
   // See https://github.com/nodejs/node/issues/3319
   req.setTimeout(43200000) // 12 hours
   req.length = req.headers['content-length']
-
-  try {
-    await xapi.installSupplementalPack(req, { hostId })
-    res.end(format.response(0))
-  } catch (e) {
-    res.writeHead(500)
-    res.end(format.error(0, new JsonRpcError(e.message)))
-  }
+  await xapi.installSupplementalPack(req, { hostId })
+  res.end(format.response(0))
 }
 
 export async function installSupplementalPack({ host }) {
@@ -264,4 +281,20 @@ installSupplementalPack.params = {
 
 installSupplementalPack.resolve = {
   host: ['host', 'host', 'admin'],
+}
+
+// -------------------------------------------------------------------
+
+export function isHyperThreadingEnabled({ host }) {
+  return this.getXapi(host).isHyperThreadingEnabled(host._xapiId)
+}
+
+isHyperThreadingEnabled.description = 'get hyper-threading information'
+
+isHyperThreadingEnabled.params = {
+  id: { type: 'string' },
+}
+
+isHyperThreadingEnabled.resolve = {
+  host: ['id', 'host', 'administrate'],
 }

@@ -13,9 +13,7 @@ export default function proxyConsole(ws, vmConsole, sessionId) {
     hostname = address
 
     log.warn(
-      `host is missing in console (${vmConsole.uuid}) URI (${
-        vmConsole.location
-      }) using host address (${address}) as fallback`
+      `host is missing in console (${vmConsole.uuid}) URI (${vmConsole.location}) using host address (${address}) as fallback`
     )
   }
 
@@ -26,6 +24,9 @@ export default function proxyConsole(ws, vmConsole, sessionId) {
       host: hostname,
       port: url.port || 443,
       rejectUnauthorized: false,
+
+      // Support XS <= 6.5 with Node => 12
+      minVersion: 'TLSv1',
     },
     () => {
       // Write headers.

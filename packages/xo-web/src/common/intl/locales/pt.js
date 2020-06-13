@@ -1564,7 +1564,7 @@ export default {
   vdiAction: 'Ação',
 
   // Original text: "Attach disk"
-  vdiAttachDeviceButton: 'Anexar disco',
+  vdiAttachDevice: 'Anexar disco',
 
   // Original text: "New disk"
   vbdCreateDeviceButton: 'Novo disco',
@@ -1595,9 +1595,6 @@ export default {
 
   // Original text: 'Destination SR:'
   vdiMigrateSelectSr: undefined,
-
-  // Original text: 'Migrate all VDIs'
-  vdiMigrateAll: undefined,
 
   // Original text: 'No SR'
   vdiMigrateNoSr: undefined,
@@ -2635,9 +2632,6 @@ export default {
 
   // Original text: "Read Only"
   serverReadOnly: 'Modo Leitura',
-
-  // Original text: 'Disconnect server'
-  serverDisconnect: undefined,
 
   // Original text: 'username'
   serverPlaceHolderUser: undefined,
