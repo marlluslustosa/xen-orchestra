@@ -7638,8 +7638,15 @@ fastq@^1.6.0:
 
 fatfs@^0.10.4:
   version "0.10.7"
-  resolved "https://registry.yarnpkg.com/fatfs/-/fatfs-0.10.7.tgz#b2a109dd874cf8298abc6a4fe0e5f5336ff6e1ab"
-  integrity sha512-MYhg+WjcgyidtfEngBySpF1tm7kgPKDBVd7S9wZSg6Ij3P++UIsPV1Lj9TdpAhIybnTHVLVLP/5DnUe5EFgDcg==
+  resolved "https://codeload.github.com/jereksel/fatfs/tar.gz/f0a45bf9314149f4a59611202bb6cfa5ad554824"
+  dependencies:
+    fifolock "^1.0.0"
+    struct-fu "^1.2.1"
+    xok "^1.0.0"
+
+fatfs@jereksel/fatfs#label:
+  version "0.10.7"
+  resolved "https://codeload.github.com/jereksel/fatfs/tar.gz/af4a6e9334fdd3ef83399581e1641d7972df1184"
   dependencies:
     fifolock "^1.0.0"
     struct-fu "^1.2.1"
